@@ -1,0 +1,43 @@
+
+syntax = "proto3";
+package ChatMsg;
+
+// this is a comment
+message CsLogin {
+  string UserName = 1;
+  string PassWord = 2;
+}
+
+message ScLogin {
+  int32 ErrCode = 1;
+}
+
+message CsChatTarget {
+  string UserName = 1;
+}
+
+message ScChatTarget {
+  int32 ErrCode = 1;
+}
+
+message CsChat {
+  string Content = 1;
+}
+
+message ScChat {
+  int32 ErrCode = 1;
+}
+
+message ScChatFrom{
+  string FromName = 1;
+  string Content = 2;
+}
+
+message PChat {
+  string FromName = 1;
+  string Content = 2;
+}
+
+message ScOfflineChatFrom {
+  repeated PChat ChatList = 1;
+}
