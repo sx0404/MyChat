@@ -8,57 +8,40 @@ import (
 )
 
 type ProtoDeal struct{
-	PdFInfo				map[string]func()interface{}
+	PdFInfo				map[string]func()proto.Message
 }
 
 var ProtoDealInstance *ProtoDeal
 
-func (this *ProtoDeal) Unmarshal(data []byte) (interface{}, string) {
-
-	// id
-	var pdNameLen uint16
-	pdNameLen = binary.BigEndian.Uint16(data)		//前两位作为proto名称的长度
-	var pdName string
-	pdName = string(data[2:2+pdNameLen])
-
-	msg := this.PdFactory(pdName)
-	if msg == nil {
-		fmt.Println("factory proto wrong,msg:",pdName)
-		return msg , ""
-	}
-	proto.UnmarshalMerge(data[2+pdNameLen:], msg.(proto.Message))
-	return msg, pdName
+func (d *ProtoDeal) RegisterAll() {
+	d.Register(&ChatMsg.CsLogin{},ChatMsg.NewCsLogin)
+	d.Register(&ChatMsg.ScLogin{},ChatMsg.NewScLogin)
+	d.Register(&ChatMsg.CsChat{},ChatMsg.NewCsChat)
+	d.Register(&ChatMsg.ScChat{},ChatMsg.NewScChat)
+	d.Register(&ChatMsg.CsChatTarget{},ChatMsg.NewCsChatTarget)
+	d.Register(&ChatMsg.ScChatTarget{},ChatMsg.NewScChatTarget)
+	d.Register(&ChatMsg.ScChatFrom{},ChatMsg.NewScChatFrom)
+	d.Register(&ChatMsg.ScOfflineChatFrom{},ChatMsg.NewScOfflineChatFrom)
 }
 
-func (this *ProtoDeal) RegisterAll() {
-	this.Register(&ChatMsg.CsLogin{},ChatMsg.NewCsLogin)
-	this.Register(&ChatMsg.ScLogin{},ChatMsg.NewScLogin)
-	this.Register(&ChatMsg.CsChat{},ChatMsg.NewCsChat)
-	this.Register(&ChatMsg.ScChat{},ChatMsg.NewScChat)
-	this.Register(&ChatMsg.CsChatTarget{},ChatMsg.NewCsChatTarget)
-	this.Register(&ChatMsg.ScChatTarget{},ChatMsg.NewScChatTarget)
-	this.Register(&ChatMsg.ScChatFrom{},ChatMsg.NewScChatFrom)
-	this.Register(&ChatMsg.ScOfflineChatFrom{},ChatMsg.NewScOfflineChatFrom)
-}
-
-func (this *ProtoDeal) Register(msg proto.Message,f func()interface{}) {
+func (d *ProtoDeal) Register(msg proto.Message,f func()proto.Message) {
 	PdName := GetStructName(msg)
-	this.PdFInfo[PdName] = f
+	d.PdFInfo[PdName] = f
 }
 
 func GetProtoDealInstance() *ProtoDeal {
 	if ProtoDealInstance == nil {
-		pdFInfo := make(map[string]func()interface{})
+		pdFInfo := make(map[string]func()proto.Message)
 		ProtoDealInstance = &ProtoDeal{
 			PdFInfo: pdFInfo,
 		}
-
+		ProtoDealInstance.RegisterAll()
 	}
 	return ProtoDealInstance
 }
 
-func (this *ProtoDeal) PdFactory(PdName string) interface{} {
-	f := this.PdFInfo[PdName]
+func (d *ProtoDeal) PdFactory(PdName string) proto.Message {
+	f := d.PdFInfo[PdName]
 	if f == nil {
 		fmt.Println("wrong Pd Factory")
 		return nil
@@ -66,18 +49,18 @@ func (this *ProtoDeal) PdFactory(PdName string) interface{} {
 	return f()
 }
 
-func (this *ProtoDeal) Marshal(i interface{}) [] byte {
-	b, err := proto.Marshal(i.(proto.Message))
+func (d *ProtoDeal) Marshal(i proto.Message) [] byte {
+	b, err := proto.Marshal(i)
 	if err != nil {
 		fmt.Println("proto error:",i)
 	}
 	PdName := GetStructName(i)
-	r := append(StrToBytes(PdName), b...)
+	buff := append(StrToBytes(PdName), b...)
 	lenPdNameB := make([]byte, 2)
 	binary.BigEndian.PutUint16(lenPdNameB, uint16(len(PdName)))
-	r = append(lenPdNameB,r...)
+	buff = append(lenPdNameB,buff...)
 	lenB := make([]byte,2)
-	binary.BigEndian.PutUint16(lenB, uint16(len(r) + 2))
-	r = append(lenB,r...)
-	return r
+	binary.BigEndian.PutUint16(lenB, uint16(len(buff) + 2))
+	buff = append(lenB,buff...)
+	return buff
 }

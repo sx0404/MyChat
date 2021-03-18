@@ -3,6 +3,7 @@ package Client
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"net"
 	"test/src/Common"
 	"test/src/ErrCode"
@@ -28,56 +29,68 @@ func InitClient() {
 	}
 	chatClient.ProtoDeal = Common.GetProtoDealInstance()
 	chatClient.connect()
-	chatClient.RegisterAll()
 	chatClient.RegistSelfAll()
 	chatClient.BehaviorTree()
-	chatClient.loop()
+	chatClient.LoopDoNetData()
 }
-
-func (this *ChatClient) loop() {
+func (a *ChatClient) LoopDoNetData() {
+	data := make([]byte, 1024)
 	for {
-		data := make([]byte, 1024)
-		dataLen, err := this.conn.Read(data)
+		dataLen, err := a.conn.Read(data)
 		if err != nil {
 			fmt.Println("get err wrong", err)
-			this.DoExit()
+			break
 		}
-		this.buff = append(this.buff[:this.buffIndex], data...)
-		this.buffIndex += uint16(dataLen)
+		if dataLen == 0{
+			continue
+		}
+		a.buff = append(a.buff[:a.buffIndex], data...)
+		a.buffIndex += uint16(dataLen)
+		var msgLen uint16 //消息长度防止沾包
+		msgLen = binary.BigEndian.Uint16(a.buff)
 		for {
-			var msgLen uint16 //消息长度防止沾包
-			msgLen = binary.BigEndian.Uint16(this.buff)
 			if uint16(dataLen) < msgLen {
 				break //等待后续的包
 			}
-			msg, msgName := this.Unmarshal(this.buff[2:msgLen])
-			this.buffIndex -= msgLen
-			this.buff = this.buff[msgLen:dataLen]
+
+			// id
+			var pdNameLen uint16
+			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4])		//前两位作为proto名称的长度
+			var msgName string
+			msgName = string(a.buff[4:4+pdNameLen])
+			msg := a.PdFactory(msgName)
+			err = proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
+			if err != nil {
+				fmt.Println("proto unmarshal error!!!!")
+				a.DoExit()		//解码出错关闭网关
+			}
+			a.buffIndex -= msgLen
+			a.buff = a.buff[msgLen:dataLen]
 			if msgName == "" {
 				Common.Debug("unmarshal message error: ")
 				break
 			}
-			//fmt.Println("msg ok,msg", msgName)
+			fmt.Println("msg ok,msg", msgName)
 			//直接执行函数
-			this.HandleMsg(msg)
-			if this.buffIndex < 2 {
+			a.HandleMsg(msg)
+			if a.buffIndex < 2 {
 				break
 			}
 		}
 	}
 }
 
-func (this *ChatClient) DoExit() {
-	this.conn.Close()
+func (a *ChatClient) DoExit() {
+	a.conn.Close()
 }
 
-func (this *ChatClient) connect() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", this.serverAddr)
+func (a *ChatClient) connect() {
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", a.serverAddr)
 	if err != nil {
 		fmt.Println( "addr err", err.Error())
 		panic("addr error")
 	}
-	this.conn, err = net.DialTCP("tcp", nil, tcpAddr)
+	a.conn, err = net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		fmt.Println("tcp error", err.Error())
 		panic("tcp error")
@@ -86,109 +99,109 @@ func (this *ChatClient) connect() {
 	fmt.Println("connection success")
 }
 
-func (this *ChatClient) SendSock(i interface{}) {
-	data := this.Marshal(i)
-	this.conn.Write(data)
+func (a *ChatClient) SendSock(i proto.Message) {
+	data := a.Marshal(i)
+	a.conn.Write(data)
 }
 
-func (this *ChatClient) BehaviorTree() {
-	this.DoLogin()
+func (a *ChatClient) BehaviorTree() {
+	a.DoLogin()
 }
 
-func (this *ChatClient) DoLogin() {
+func (a *ChatClient) DoLogin() {
 	fmt.Println("input UserName:")
-	this.UserName = Common.KeyInput()
+	a.UserName = Common.KeyInput()
 	fmt.Println("input PassWord:")
-	this.PassWorld = Common.KeyInput()
+	a.PassWorld = Common.KeyInput()
 
-	this.SendSock(&ChatMsg.CsLogin{UserName: this.UserName,PassWord: this.PassWorld})
+	a.SendSock(&ChatMsg.CsLogin{UserName: a.UserName,PassWord: a.PassWorld})
 }
 
-func (this *ChatClient) CoutOnDesk(str string) {
+func (a *ChatClient) CoutOnDesk(str string) {
 	fmt.Println(str)
 }
 
-func (this *ChatClient) HandleMsg(msg interface{}) {
+func (a *ChatClient) HandleMsg(msg interface{}) {
 	msgName := Common.GetStructName(msg)
-	f := this.handle[msgName]
+	f := a.handle[msgName]
 	if f == nil {
 		fmt.Println("HandleMsg wrong msg",msg)
 	}
 	f(msg)
 }
 
-func (this *ChatClient) ChooseTarget() {
-	this.CoutOnDesk("input chat target:")
+func (a *ChatClient) ChooseTarget() {
+	a.CoutOnDesk("input chat target:")
 	targetName := Common.KeyInput()
-	this.SendSock(&ChatMsg.CsChatTarget{UserName: targetName})
-	this.target = targetName
+	a.SendSock(&ChatMsg.CsChatTarget{UserName: targetName})
+	a.target = targetName
 }
 
-func (this *ChatClient) Regist(msg interface{},f func(interface{})) {
-	this.handle[Common.GetStructName(msg)] = f
+func (a *ChatClient) Regist(msg interface{},f func(interface{})) {
+	a.handle[Common.GetStructName(msg)] = f
 }
 
-func (this *ChatClient) RegistSelfAll() {
-	this.Regist(ChatMsg.ScLogin{},this.ScLogin)
-	this.Regist(ChatMsg.ScChatTarget{},this.ScChatTarget)
-	this.Regist(ChatMsg.ScChat{},this.ScChat)
-	this.Regist(ChatMsg.ScChatFrom{},this.ScChatFrom)
+func (a *ChatClient) RegistSelfAll() {
+	a.Regist(ChatMsg.ScLogin{}, a.ScLogin)
+	a.Regist(ChatMsg.ScChatTarget{}, a.ScChatTarget)
+	a.Regist(ChatMsg.ScChat{}, a.ScChat)
+	a.Regist(ChatMsg.ScChatFrom{}, a.ScChatFrom)
 }
 
-func (this *ChatClient) ScLogin(i interface{}) {
+func (a *ChatClient) ScLogin(i interface{}) {
 	msg := i.(*ChatMsg.ScLogin)
 	switch msg.ErrCode {
 	case ErrCode.OK:
-		this.CoutOnDesk("login ok")
-		this.ChooseTarget()
+		a.CoutOnDesk("login ok")
+		a.ChooseTarget()
 	case ErrCode.LoginPassWord:
-		this.CoutOnDesk("login password error,login again")
-		this.DoLogin()
+		a.CoutOnDesk("login password error,login again")
+		a.DoLogin()
 	default:
 		fmt.Println("ScLogin unknown errCode: ", msg.ErrCode)
-		this.DoLogin()
+		a.DoLogin()
 	}
 }
 
-func (this *ChatClient) ScChatTarget(i interface{}) {
+func (a *ChatClient) ScChatTarget(i interface{}) {
 	msg := i.(*ChatMsg.ScChatTarget)
 	switch msg.ErrCode {
 	case ErrCode.UserNotExist:
 		fmt.Println("chat target user not exist")
-		this.ChooseTarget()
+		a.ChooseTarget()
 	case ErrCode.RoleOffline:
 		fmt.Println("target is offline,send content will be shown when he online")
-		this.DoChat()
+		a.DoChat()
 	case ErrCode.OK:
 		fmt.Println("target is online")
-		this.DoChat()
+		a.DoChat()
 	default :
-		fmt.Println("ScChatTarget unkwnow errCode",msg.ErrCode)
+		fmt.Println("ScChatTarget unknown errCode",msg.ErrCode)
 	}
 }
 
-func (this *ChatClient) DoChat() {
-	fmt.Println("input content will send to ",this.target)
+func (a *ChatClient) DoChat() {
+	fmt.Println("input content will send to ", a.target)
 	content := Common.KeyInput()
-	this.SendSock(&ChatMsg.CsChat{Content: content})
+	a.SendSock(&ChatMsg.CsChat{Content: content})
 }
 
-func (this *ChatClient) ScChat(i interface{}) {
+func (a *ChatClient) ScChat(i interface{}) {
 	msg := i.(*ChatMsg.ScChat)
 	switch msg.ErrCode {
 	case ErrCode.ChatTargetNotSet:
 		fmt.Println("not set chat target")
-		this.ChooseTarget()
+		a.ChooseTarget()
 	case ErrCode.RoleOffline:
-		fmt.Println("chat ok,but user offline:",this.target)
-		this.DoChat()
+		fmt.Println("chat ok,but user offline:", a.target)
+		a.DoChat()
 	case ErrCode.OK:
-		fmt.Println("chat ok,user online:",this.target)
-		go this.DoChat()
+		fmt.Println("chat ok,user online:", a.target)
+		go a.DoChat()
 	}
 }
 
-func (this *ChatClient) ScChatFrom(i interface{}) {
+func (a *ChatClient) ScChatFrom(i interface{}) {
 	msg := i.(*ChatMsg.ScChatFrom)
 	fmt.Println("From ",msg.FromName,":",msg.Content)
 }

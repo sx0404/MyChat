@@ -2,6 +2,7 @@ package Server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -23,6 +24,7 @@ type QueProcessor struct {
 	Name		string
 	Que			chan interface{}			//
 	down		chan bool
+	timeTick	*time.Ticker
 	QueMsgM
 }
 
@@ -59,7 +61,7 @@ func (this *QueMsgM) RegisterAll(processor *QueProcessor) {
 	//默认需要注册的
 	this.RegisterInfo(CallSendMsg{}, this.procPtr.CallFunc)
 	this.RegisterInfo(QueProcessExit{}, this.procPtr.Exit)
-	this.RegisterCall(QueProcessExit{}, this.procPtr.SynxExit)
+	this.RegisterCall(QueProcessExit{}, this.procPtr.SyncExit)
 
 	//测试代码
 	this.RegisterInfo(Test{}, Route.Test)
@@ -92,49 +94,49 @@ func InitQueProcessor(name string) QueProcessor {
 	return queProcessor
 }
 
-func (this *QueProcessor) RunQueProcessor() {
-	this.RunQueProcessorInit()
-	defer DeleteFromQueProcessorM(this)			//退出必定执行在管理列表中注销
-	this.Loop()
+func (p *QueProcessor) RunQueProcessor() {
+	p.RunQueProcessorInit()
+	defer DeleteFromQueProcessorM(p) //退出必定执行在管理列表中注销
+	p.Loop()
 }
 
-func (this *QueProcessor) RunQueProcessorWithFunc(defaultFunc func()) {
-	this.RunQueProcessorInit()
-	defer DeleteFromQueProcessorM(this)			//退出必定执行在管理列表中注销
-	this.LoopWithFunc(defaultFunc)
+func (p *QueProcessor) RunQueProcessorWithFunc(defaultFunc func()) {
+	p.RunQueProcessorInit()
+	defer DeleteFromQueProcessorM(p) //退出必定执行在管理列表中注销
+	p.LoopWithFunc(defaultFunc)
 }
 
-func (this *QueProcessor) RunQueProcessorInit() {
+func (p *QueProcessor) RunQueProcessorInit() {
 	processorID := GetGoroutineID()
-	this.id = processorID
+	p.id = processorID
 	processorManager := GetQueProcessorManagerMInstance()
-	processorManager.AddWithID(this)
-	processorManager.AddWithName(this)
+	processorManager.AddWithID(p)
+	processorManager.AddWithName(p)
 }
 
 //把当前进程加入到管理中
-func (this *QueProcessor) AddProcToM() {
-	GetQueProcessorManagerMInstance().AddWithName(this)
+func (p *QueProcessor) AddProcToM() {
+	GetQueProcessorManagerMInstance().AddWithName(p)
 }
 
 //异步发送消息给指定进程
-func (this *QueProcessor) SendWithName(processorName string,i interface{}) {
+func (p *QueProcessor) SendWithName(processorName string,i interface{}) {
 	instance := GetQueProcessorManagerMInstance()
 	targetProc := instance.FindWithName(processorName)
-	this.Send(targetProc,i)
+	p.Send(targetProc,i)
 }
 
-func (this *QueProcessor) SendSelf(i interface{}) {
-	this.SendWithID(this.id,i)
+func (p *QueProcessor) SendSelf(i interface{}) {
+	p.SendWithID(p.id,i)
 }
 
-func (this *QueProcessor) SendWithID(id uint64,i interface{}) {
+func (p *QueProcessor) SendWithID(id uint64,i interface{}) {
 	instance := GetQueProcessorManagerMInstance()
 	targetProc := instance.FindWithID(id)
-	this.Send(targetProc,i)
+	p.Send(targetProc,i)
 }
 
-func (this *QueProcessor) Send(target *QueProcessor,i interface{}) {
+func (p *QueProcessor) Send(target *QueProcessor,i interface{}) {
 	if target == nil {
 		fmt.Println("SendWithName error",i)
 	}else{
@@ -143,13 +145,13 @@ func (this *QueProcessor) Send(target *QueProcessor,i interface{}) {
 }
 
 //执行channel中的函数进行路由
-func (this *QueProcessor) LoopWithFunc(defaultFunc func()) {
+func (p *QueProcessor) LoopWithFunc(defaultFunc func()) {
 	for {
 		select {
-			case a := <- this.Que:
-				this.Route(a)
-			case <- this.down:
-				fmt.Println("goroutin down")
+			case a := <- p.Que:
+				p.Route(a)
+			case <- p.down:
+				fmt.Println("goroutine down")
 				return
 			default:
 				defaultFunc()
@@ -158,66 +160,66 @@ func (this *QueProcessor) LoopWithFunc(defaultFunc func()) {
 }
 
 //执行channel中的函数进行路由
-func (this *QueProcessor) Loop() {
+func (p *QueProcessor) Loop() {
+	p.timeTick = time.NewTicker(time.Second)
 	for {
 		select {
-		case a := <- this.Que:
-			this.Route(a)
-		case <- this.down:
-			fmt.Println("goroutin down")
+		case a := <- p.Que:
+			p.Route(a)
+		case <- p.down:
+			fmt.Println("goroutine down")
 			return
+		case <- p.timeTick.C:
+			p.timeTick = time.NewTicker(time.Second)
+			//TODO 后面可以🏠事件注册来实现定时任务
+			//fmt.Println("11111")
 		}
 	}
 }
 
-func (this *QueProcessor) Route(i interface{}) {
-	f := this.GetInfoFunc(Common.GetStructName(i))
+func (p *QueProcessor) Route(i interface{}) {
+	f := p.GetInfoFunc(Common.GetStructName(i))
 	if f == nil {
-		fmt.Println("Route not find,",i,this.Name)
+		fmt.Println("Route not find,",i, p.Name)
 		return
 	}
 	f(i)
 }
 
-func (this *QueProcessor) CallRoute(i interface{}) CallReturnMsg {
-	f := this.QueMsgM.GetCallFunc(Common.GetStructName(i))
+func (p *QueProcessor) CallRoute(i interface{}) CallReturnMsg {
+	f := p.QueMsgM.GetCallFunc(Common.GetStructName(i))
 	return f(i)
 }
 
 //同步执行
-func (this *QueProcessor) CallWithID(id uint64,s interface{},timeOut int16) {
-	this.SendWithID(id, CallSendMsg{this.id,s})
-	this.Call2()
+func (p *QueProcessor) CallWithID(id uint64,s interface{},timeOut int64) {
+	p.SendWithID(id, CallSendMsg{p.id,s})
+	p.Call2(timeOut)
 }
 
-func (this *QueProcessor) CallWithName(name string,s interface{},timeOut int16) {
-	this.SendWithName(name, CallSendMsg{this.id,s})
-	this.Call2()
+func (p *QueProcessor) CallWithName(name string,s interface{},timeOut int64) {
+	p.SendWithName(name, CallSendMsg{p.id,s})
+	p.Call2(timeOut)
 }
 
-func (this *QueProcessor) Call2() {
+func (p *QueProcessor) Call2(timeOut int64) error {
 	for {
-		//避免对面
-		timer := time.NewTimer(time.Millisecond * 60)
-		defer timer.Stop()
-
-		timeOutFunc := func() {
-			<-timer.C
-
-			//投递一个退出消息给process
-			this.Que <- CallTimeOver{}
-		}
-		// 等待定时器完成异步任务
-		go timeOutFunc()
-
-		recive := <- this.Que
-		if reflect.TypeOf(recive).Name() == "CallTimeOver" {
-			//接收到超时信息
-			fmt.Println("call timeout")
-			break
-		}else if reflect.TypeOf(recive).Name() == "CallReturnMsg" {
-			callReturnMsg := recive.(CallReturnMsg)
-			this.Route(callReturnMsg.s)
+		var timer = time.NewTimer(time.Millisecond  * time.Duration(timeOut))
+		sliceI := make([]interface{},100)
+		select {
+		case receive := <- p.Que:
+			if reflect.TypeOf(receive).Name() == "CallReturnMsg" {
+				callReturnMsg := receive.(CallReturnMsg)
+				p.Route(callReturnMsg.s)
+				for i := range sliceI {
+					p.SendSelf(i)			//把之前遗留的消息返回
+				}
+				return nil
+			}else{
+				sliceI = append(sliceI, receive)
+			}
+			case <-timer.C:
+				return errors.New("time out")
 		}
 	}
 }
@@ -232,26 +234,26 @@ func GetGoroutineID() uint64 {
 }
 
 //异步处理的消息
-func (this *QueProcessor) Exit(i interface{}) {
+func (p *QueProcessor) Exit(i interface{}) {
 	exit := i.(QueProcessExit)
-	fmt.Println("exit go,name :%s,id :%d,reson:",this.Name,this.id,exit.reson)
-	this.DoExit()
+	fmt.Println("goroutine exist ", p.Name, p.id,exit.reson)
+	p.DoExit()
 }
 
 //同步处理的消息
-func (this *QueProcessor) SynxExit(i interface{}) CallReturnMsg {
+func (p *QueProcessor) SyncExit(i interface{}) CallReturnMsg {
 	exit := i.(QueProcessExit)
-	fmt.Println("exit go,name :%s,id :%d,reson:",this.Name,this.id,exit.reson)
-	this.DoExit()
+	fmt.Println("SyncExit:", p.Name, p.id,exit.reson)
+	p.DoExit()
 	return CallReturnMsg{}
 }
 
-func (this *QueProcessor) DoExit() {
-	this.down <- true
+func (p *QueProcessor) DoExit() {
+	p.down <- true
 }
 
-func (this *QueProcessor) CallFunc(i interface{}) {
+func (p *QueProcessor) CallFunc(i interface{}) {
 	callSendMsg := i.(CallSendMsg)
-	callReturnmsg := this.CallRoute(callSendMsg)
-	this.SendWithID(callSendMsg.fromID, callReturnmsg)
+	callReturns := p.CallRoute(callSendMsg)
+	p.SendWithID(callSendMsg.fromID, callReturns)
 }

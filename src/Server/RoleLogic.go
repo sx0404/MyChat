@@ -2,6 +2,7 @@ package Server
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"test/src/Cache"
 	"test/src/Common"
 	db "test/src/DB"
@@ -37,57 +38,57 @@ func InitRoleProcessor(gatewayAgent *GateWayAgent,userName string) *RoleProcesso
 	return roleProcessor
 }
 
-func (this *RoleProcessor) RegistAllHandle() {
-	this.RegisterInfo(InfoLoadDB{},this.InfoLoadDB)
-	this.RegisterInfo(InfoChangeGateWayToRoleLogic{},this.InfoChangeGateWayToRoleLogic)
-	this.RegisterInfo(ChatMsg.CsChatTarget{},this.CsChatTarget)
-	this.RegisterInfo(ChatMsg.CsChat{},this.CsChat)
-	this.RegisterInfo(InfoRoleChat{},this.InfoRoleChat)
+func (p *RoleProcessor) RegistAllHandle() {
+	p.RegisterInfo(InfoLoadDB{}, p.InfoLoadDB)
+	p.RegisterInfo(InfoChangeGateWayToRoleLogic{}, p.InfoChangeGateWayToRoleLogic)
+	p.RegisterInfo(ChatMsg.CsChatTarget{}, p.CsChatTarget)
+	p.RegisterInfo(ChatMsg.CsChat{}, p.CsChat)
+	p.RegisterInfo(InfoRoleChat{}, p.InfoRoleChat)
 }
 
-func (this *RoleProcessor) RunRoleProcessor() {
+func (p *RoleProcessor) RunRoleProcessor() {
 	//异步请求加载玩家数据
 	go func() {
-		this.InfoLoadDB(this)
+		p.InfoLoadDB(p)
 		//注册已经在线的玩家信息
-		RegisterOnline(this)
+		RegisterOnline(p)
 		//延迟函数保证关闭后取消在线信息
-		defer RegisterOffline(this)
-		defer this.gatewayAgent.DoExit()
-		this.RunQueProcessor()
+		defer RegisterOffline(p)
+		defer p.gatewayAgent.DoExit()
+		p.RunQueProcessor()
 	}()
 }
 
-func (this *RoleProcessor) InfoChangeGateWayToRoleLogic(i interface{}) {
+func (p *RoleProcessor) InfoChangeGateWayToRoleLogic(i interface{}) {
 	infoChangeGateWayToRoleLogic := i.(InfoChangeGateWayToRoleLogic)
-	this.gatewayAgent = infoChangeGateWayToRoleLogic.Change
+	p.gatewayAgent = infoChangeGateWayToRoleLogic.Change
 }
 
-func (this *RoleProcessor) InfoLoadDB(i interface{}) {
-	roleInfo := db.GetUserByUserID(this.userID)
-	roleMoney := db.GetRoleMoney(this.userID)
-	roleFriendInfo := db.GetRoleFriendInfo(this.userID)
+func (p *RoleProcessor) InfoLoadDB(i interface{}) {
+	roleInfo := db.GetUserByUserID(p.userID)
+	roleMoney := db.GetRoleMoney(p.userID)
+	roleFriendInfo := db.GetRoleFriendInfo(p.userID)
 
-	Cache.SetRoleInfo(this.userID,roleInfo)
-	Cache.SetRoleMoney(this.userID,roleMoney)
-	Cache.SetRoleFriend(this.userID,roleFriendInfo)
+	Cache.SetRoleInfo(p.userID,roleInfo)
+	Cache.SetRoleMoney(p.userID,roleMoney)
+	Cache.SetRoleFriend(p.userID,roleFriendInfo)
 }
 
-func (this *RoleProcessor) GetRoleInfo() *Formation.RoleInfo {
-	roleInfo := Cache.GetRoleInfo(this.userID)
+func (p *RoleProcessor) GetRoleInfo() *Formation.RoleInfo {
+	roleInfo := Cache.GetRoleInfo(p.userID)
 	return roleInfo
 }
 
-func (this *RoleProcessor) SendSock(i interface{}) {
-	if this.gatewayAgent == nil {
+func (p *RoleProcessor) SendSock(i proto.Message) {
+	if p.gatewayAgent == nil {
 		fmt.Println("gateway not Found")
 	}
 	fmt.Println("send msg ",Common.GetStructName(i),i)
-	C := this.Marshal(i)
-	this.gatewayAgent.conn.Write(C)
+	C := p.Marshal(i)
+	p.gatewayAgent.conn.Write(C)
 }
 
-func (this *RoleProcessor) CsChatTarget(i interface{}) {
+func (p *RoleProcessor) CsChatTarget(i interface{}) {
 	msg := i.(*ChatMsg.CsChatTarget)
 	targetName := msg.GetUserName()
 	//判断玩家是否在线
@@ -97,42 +98,43 @@ func (this *RoleProcessor) CsChatTarget(i interface{}) {
 		targetID := db.GetUserIDByUserName(targetName)
 		if targetID == 0 {
 			//玩家不存在
-			this.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.UserNotExist})
+			p.chatTarget = targetName
+			p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.UserNotExist})
 			return
 		}
-		this.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.RoleOffline})
+		p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.RoleOffline})
 		return
 	}
-	this.chatTarget = targetName
-	this.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.OK})
+	p.chatTarget = targetName
+	p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.OK})
 }
 
-func (this *RoleProcessor) CsChat(i interface{}) {
+func (p *RoleProcessor) CsChat(i interface{}) {
 	msg := i.(*ChatMsg.CsChat)
-	if this.chatTarget == "" {
-		this.SendSock(&ChatMsg.ScChat{ErrCode:ErrCode.ChatTargetNotSet})
+	if p.chatTarget == "" {
+		p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.ChatTargetNotSet})
 		return
 	}
-	targetProc := GetOnlineRoleByUserName(this.chatTarget)
+	targetProc := GetOnlineRoleByUserName(p.chatTarget)
 	if targetProc == nil {
 		//通知客户端只能留言
-		userID := db.GetUserIDByUserName(this.chatTarget)
+		userID := db.GetUserIDByUserName(p.chatTarget)
 		db.InsertChat(Formation.OfflineChat{
-		SendID: userID,
-		FromID: this.userID,
-		FromName: this.userName,
-		Content: msg.Content,
+		SendID:   userID,
+		FromID:   p.userID,
+		FromName: p.userName,
+		Content:  msg.Content,
 		})
-		this.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.RoleOffline})
+		p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.RoleOffline})
 		return
 	}
-	this.Send(&targetProc.QueProcessor,InfoRoleChat{FromName: this.userName,Content: msg.Content})
-	this.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.OK})
+	p.Send(&targetProc.QueProcessor,InfoRoleChat{FromName: p.userName,Content: msg.Content})
+	p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.OK})
 }
 
 //接受到聊天消息发给自己
-func (this *RoleProcessor) InfoRoleChat(i interface{}) {
+func (p *RoleProcessor) InfoRoleChat(i interface{}) {
 	info := i.(InfoRoleChat)
-	this.SendSock(&ChatMsg.ScChatFrom{FromName: info.FromName,Content: info.Content})
+	p.SendSock(&ChatMsg.ScChatFrom{FromName: info.FromName,Content: info.Content})
 }
 

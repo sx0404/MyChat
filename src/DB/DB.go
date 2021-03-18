@@ -22,23 +22,24 @@ type ChatDB struct {
 }
 
 func InitDB() *ChatDB {
-	chatDB := new(ChatDB)
-	config := MysqlConfig{}
-	config.userName = "root"
-	config.password = "Sx86427353"
-	config.ip = "127.0.0.1"
-	config.port = "3306"
-	config.dbName = "chat_db"
+	chatDB := ChatDB{}
+	config := MysqlConfig{
+		userName: "root",
+		password: "Sx86427353",
+		ip:       "127.0.0.1",
+		port:     "3306",
+		dbName:   "chat_db",
+	}
 	chatDB.MysqlConfig = config
 	chatDB.Connect()
 
 	//初始化需要用到的ID序列
 	chatDB.InitUserID()
-	return chatDB
+	return &chatDB
 }
 
-func (this * ChatDB) InitUserID() {
-	NowMinUserID := this.GetMaxUserID()
+func (d * ChatDB) InitUserID() {
+	NowMinUserID := d.GetMaxUserID()
 	var iniUserID uint64 = Common.MaxUInt64(NowMinUserID,100000)
 	Common.SetUserID(iniUserID)
 }
@@ -53,9 +54,9 @@ func GetDBInstance() *ChatDB {
 	return ChatDBInstance
 }
 
-func (this *ChatDB) GetMaxUserID() uint64 {
+func (d *ChatDB) GetMaxUserID() uint64 {
 	var minUserID uint64
-	err := this.db.QueryRow("SELECT  MAX(userID) FROM g_user").Scan(
+	err := d.db.QueryRow("SELECT  MAX(userID) FROM g_user").Scan(
 		&minUserID)
 	if err != nil {
 		fmt.Println("GetMinUserID wrong",err)
@@ -64,23 +65,23 @@ func (this *ChatDB) GetMaxUserID() uint64 {
 	return minUserID
 }
 
-func (this *ChatDB) Connect() {
-	path := strings.Join([]string{this.userName, ":",
-		this.password, "@tcp(",this.ip, ":", this.port, ")/", this.dbName, "?charset=utf8"}, "")
-	this.db, _ = sql.Open("mysql", path)
-	this.db.SetMaxOpenConns(10)
-	this.db.SetMaxIdleConns(10)
+func (d *ChatDB) Connect() {
+	path := strings.Join([]string{d.userName, ":",
+		d.password, "@tcp(", d.ip, ":", d.port, ")/", d.dbName, "?charset=utf8"}, "")
+	d.db, _ = sql.Open("mysql", path)
+	d.db.SetMaxOpenConns(10)
+	d.db.SetMaxIdleConns(10)
 	//验证连接
-	if err := this.db.Ping(); err != nil{
+	if err := d.db.Ping(); err != nil{
 		fmt.Println("open database fail")
 		panic("open database fail")
 	}
-	fmt.Println("mysql connnect success")
+	fmt.Println("mysql connect success")
 }
 
-func (this *ChatDB) Insert(table string,colNameArray []string, args ...interface{}) bool {
+func (d *ChatDB) Insert(table string,colNameArray []string, args ...interface{}) bool {
 	//开启事务
-	tx, err := this.db.Begin()
+	tx, err := d.db.Begin()
 	if err != nil{
 		fmt.Println("tx fail")
 		return false
@@ -113,8 +114,8 @@ func (this *ChatDB) Insert(table string,colNameArray []string, args ...interface
 	return true
 }
 
-func (this *ChatDB) Delete(table string,deleteKeyName string,i interface{}) bool {
-	tx, err := this.db.Begin()
+func (d *ChatDB) Delete(table string,deleteKeyName string,i interface{}) bool {
+	tx, err := d.db.Begin()
 	if err != nil{
 		fmt.Println("tx fail")
 	}
@@ -135,9 +136,9 @@ func (this *ChatDB) Delete(table string,deleteKeyName string,i interface{}) bool
 	return true
 }
 
-func (this *ChatDB) Update(table string,colNameArray []string, args ...interface{}) bool{
+func (d *ChatDB) Update(table string,colNameArray []string, args ...interface{}) bool{
 	//开启事务
-	tx, err := this.db.Begin()
+	tx, err := d.db.Begin()
 	if err != nil{
 		fmt.Println("tx fail")
 		return false

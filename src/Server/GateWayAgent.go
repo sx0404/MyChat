@@ -3,6 +3,7 @@ package Server
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"math"
 	"net"
 	"test/src/Common"
@@ -41,86 +42,98 @@ func InitGateAgent(conn net.Conn) {
 		conn: conn,
 		ProtoDeal : protoDeal,
 		userID: 0}
-	gateWayAgent.RegisterAll()
 	gateWayAgent.RunGateWay()
 }
 
 //启动一个agent来处理
-func (this *GateWayAgent) RunGateWay() {
-	defer this.conn.Close()
-	this.buff = make([]byte, 1024)
-	this.buffIndex  = 0
-	this.LoopDoNetData()
+func (a *GateWayAgent) RunGateWay() {
+	defer a.conn.Close()
+	a.buff = make([]byte, 1024)
+	a.buffIndex  = 0
+	a.LoopDoNetData()
 }
 
-func (this *GateWayAgent) LoopDoNetData() {
+func (a *GateWayAgent) LoopDoNetData() {
+	data := make([]byte, 1024)
 	for {
-		data := make([]byte, 1024)
-		dataLen, err := this.conn.Read(data)
+		dataLen, err := a.conn.Read(data)
+		if dataLen == 0 {
+			continue
+		}
 		if err != nil {
 			fmt.Println("get err wrong", err)
 			break
 		}
-		this.buff = append(this.buff[:this.buffIndex], data...)
-		this.buffIndex += uint16(dataLen)
+		a.buff = append(a.buff[:a.buffIndex], data...)
+		a.buffIndex += uint16(dataLen)
 		var msgLen uint16 //消息长度防止沾包
-		msgLen = binary.BigEndian.Uint16(this.buff)
+		msgLen = binary.BigEndian.Uint16(a.buff)
 		for {
 			if uint16(dataLen) < msgLen {
 				break //等待后续的包
 			}
-			msg, msgName := this.Unmarshal(this.buff[2:msgLen])
-			this.buffIndex -= msgLen
-			this.buff = this.buff[msgLen:dataLen]
+
+			// id
+			var pdNameLen uint16
+			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4])		//前两位作为proto名称的长度
+			var msgName string
+			msgName = string(a.buff[4:4+pdNameLen])
+			msg := a.PdFactory(msgName)
+			err = proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
+			if err != nil {
+				fmt.Println("proto unmarshal error!!!!")
+				a.DoExit()		//解码出错关闭网关
+			}
+			a.buffIndex -= msgLen
+			a.buff = a.buff[msgLen:dataLen]
 			if msgName == "" {
 				Common.Debug("unmarshal message error: ")
 				break
 			}
 			fmt.Println("msg ok,msg", msgName)
 			//直接执行函数
-			this.HandleMsg(msgName, msg)
-			if this.buffIndex < 2 {
+			a.HandleMsg(msgName, msg)
+			if a.buffIndex < 2 {
 				break
 			}
 		}
 	}
 }
 
-func (this *GateWayAgent) RegistSelfAll() {
-	this.RegisterSelfInfo()
+func (a *GateWayAgent) RegisterSelfAll() {
+	a.RegisterSelfInfo()
 }
 
-func (this *GateWayAgent) RegisterSelfInfo() {
-	this.RegisterInfo(&ChatMsg.CsLogin{},this.CsLogin)
-	this.RegisterInfo(&InfoRoleLogicSendSock{},this.SendSock)
+func (a *GateWayAgent) RegisterSelfInfo() {
+	a.RegisterInfo(&ChatMsg.CsLogin{}, a.CsLogin)
 }
 
-func (this *GateWayAgent) SendSock(i interface{}) {
-	C := this.Marshal(i)
-	this.conn.Write(C)
+func (a *GateWayAgent) SendSock(i proto.Message) {
+	C := a.Marshal(i)
+	a.conn.Write(C)
 }
 
-func (this *GateWayAgent) GenAgentName() string{
-	return "GateWay" + Common.ToString(int64((this.userID)))
+func (a *GateWayAgent) GenAgentName() string{
+	return "GateWay" + Common.ToString(int64((a.userID)))
 }
 
-func (this *GateWayAgent) CsHeart(i interface{}) {
-	this.lastHearTIme = Common.GetNow()
+func (a *GateWayAgent) CsHeart(i interface{}) {
+	a.lastHearTIme = Common.GetNow()
 }
 
-func (this *GateWayAgent) CheckHearTime() {
+func (a *GateWayAgent) CheckHearTime() {
 	Now := Common.GetNow()
 	//TODO 客户端暂时不发心跳，心跳短线后面再测
-	if Now - this.lastHearTIme > math.MaxInt64 {
-		this.Exit()
+	if Now - a.lastHearTIme > math.MaxInt64 {
+		a.Exit()
 	}
 }
 
-func (this *GateWayAgent) Exit() {
-	this.conn.Close()
+func (a *GateWayAgent) Exit() {
+	a.conn.Close()
 }
 
-func (this *GateWayAgent) CsLogin(i interface{}) {
+func (a *GateWayAgent) CsLogin(i interface{}) {
 	//检查登陆信息,login放在网关.登陆没有问题再启动逻辑
 	msg,ok := i.(*ChatMsg.CsLogin)
 	if !ok {
@@ -130,56 +143,59 @@ func (this *GateWayAgent) CsLogin(i interface{}) {
 	roleInfo := db.GetUser(msg.UserName)
 	if roleInfo.UserName == "" {
 		//注册一个玩家信息
-		roleInfo = this.CreateRole(msg.UserName,msg.PassWord)
+		roleInfo = a.CreateRole(msg.UserName,msg.PassWord)
 	} else if roleInfo.Password != msg.PassWord {
-		this.SendSock(&ChatMsg.ScLogin{ErrCode: ErrCode.LoginPassWord})
+		a.SendSock(&ChatMsg.ScLogin{ErrCode: ErrCode.LoginPassWord})
 		return
 	}
 	//登陆成功
-	this.userID = roleInfo.UserID
+	a.userID = roleInfo.UserID
 	//给网关关连一个名字并注册
-	this.Name = this.GenAgentName()
+	a.Name = a.GenAgentName()
 	//检测在线的逻辑进程信息
 	OnlineRoleInstance := GetOnlineRoleInstance()
 	//网关这里只能用,
-	roleLogicProcessor := OnlineRoleInstance.FindWithID(this.userID)
+	roleLogicProcessor := OnlineRoleInstance.FindWithID(a.userID)
 	//不存在逻辑进程则立即启动
 	if roleLogicProcessor == nil {
 		//启动一个逻辑进程
-		roleProcessor := InitRoleProcessor(this,msg.UserName)
-		this.roleLogic = roleProcessor
-		this.roleLogic.RunRoleProcessor()
+		roleProcessor := InitRoleProcessor(a,msg.UserName)
+		a.roleLogic = roleProcessor
+		a.roleLogic.RunRoleProcessor()
 	}else{
-		this.roleLogic = roleLogicProcessor
+		a.roleLogic = roleLogicProcessor
 		//逻辑正关联一个网管则直接提离
-		if this.roleLogic.gatewayAgent != nil {
+		if a.roleLogic.gatewayAgent != nil {
 			//直接断掉前网关的socket来关闭网关
-			this.roleLogic.gatewayAgent.conn.Close()
+			a.roleLogic.gatewayAgent.conn.Close()
 		}
 	}
-	this.AddProcToM()
+	a.AddProcToM()
 	//把当前逻辑的网管替换成自己
-	this.roleLogic.gatewayAgent = this
-	this.SendSock(&ChatMsg.ScLogin{ErrCode: ErrCode.OK})
+	a.roleLogic.gatewayAgent = a
+	a.SendSock(&ChatMsg.ScLogin{ErrCode: ErrCode.OK})
 }
 
-func (this *GateWayAgent) GetUserID() uint64 {
-	return this.userID
+func (a *GateWayAgent) GetUserID() uint64 {
+	return a.userID
 }
 
-func (this *GateWayAgent) HandleMsg(msgName string,msg interface{}) {
+var CsLoginStr = "CsLogin"
+var CsHeartStr = "CsHeart"
+
+func (a *GateWayAgent) HandleMsg(msgName string,msg interface{}) {
 	switch {
-	case msgName == "CsLogin":
-		this.CsLogin(msg)
-	case msgName == "CsHeart" :
-		this.CsHeart(msg)
+	case msgName == CsLoginStr:
+		a.CsLogin(msg)
+	case msgName == CsHeartStr:
+		a.CsHeart(msg)
 	default:
-		roleLogic := this.roleLogic
-		this.Send(&(roleLogic.QueProcessor),msg)
+		roleLogic := a.roleLogic
+		a.Send(&(roleLogic.QueProcessor),msg)
 	}
 }
 
-func (this *GateWayAgent) CreateRole(userName string,passWord string) Formation.RoleInfo {
+func (a *GateWayAgent) CreateRole(userName string,passWord string) Formation.RoleInfo {
 	roleInfo := Formation.RoleInfo{
 		UserID: Common.GenUserID(),
 		UserName: userName,

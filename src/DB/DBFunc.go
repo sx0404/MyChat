@@ -29,7 +29,7 @@ func GetUserByUserID(userID uint64) Formation.RoleInfo {
 func GetUserIDByUserName(userName string) uint64 {
 	Instance := GetDBInstance()
 	var userID uint64
-	err := Instance.db.QueryRow("SELECT * FROM g_user WHERE userName = ?",userName).Scan(
+	err := Instance.db.QueryRow("SELECT userID FROM g_user WHERE userName = ?",userName).Scan(
 		&userID)
 	if err != nil {
 		fmt.Println("GetUserIDByUserName ",err)

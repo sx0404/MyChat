@@ -1,26 +1,28 @@
 package ChatMsg
 
-func NewCsLogin() interface{} {
-	return new(CsLogin)
+import "github.com/golang/protobuf/proto"
+
+func NewCsLogin() proto.Message {
+	return proto.Message(new(CsLogin))
 }
-func NewScLogin() interface{} {
-	return new(ScLogin)
+func NewScLogin() proto.Message {
+	return proto.Message(new(ScLogin))
 }
-func NewCsChatTarget() interface{} {
-	return new(CsChatTarget)
+func NewCsChatTarget() proto.Message {
+	return proto.Message(new(CsChatTarget))
 }
-func NewScChatTarget() interface{} {
-	return new(ScChatTarget)
+func NewScChatTarget() proto.Message {
+	return proto.Message(new(ScChatTarget))
 }
-func NewCsChat() interface{} {
-	return new(CsChat)
+func NewCsChat() proto.Message {
+	return proto.Message(new(CsChat))
 }
-func NewScChat() interface{} {
-	return new(ScChat)
+func NewScChat() proto.Message {
+	return proto.Message(new(ScChat))
 }
-func NewScChatFrom() interface{} {
-	return new(ScChatFrom)
+func NewScChatFrom() proto.Message {
+	return proto.Message(new(ScChatFrom))
 }
-func NewScOfflineChatFrom() interface{} {
-	return new(ScOfflineChatFrom)
+func NewScOfflineChatFrom() proto.Message {
+	return proto.Message(new(ScOfflineChatFrom))
 }

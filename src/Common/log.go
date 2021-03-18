@@ -41,11 +41,11 @@ func InitLog() {
 	GetInstanceLog()
 }
 
-func (this *Log) SetLogLevel(LogLevel logLevel) {
-	this.LogLevel = LogLevel
+func (l *Log) SetLogLevel(LogLevel logLevel) {
+	l.LogLevel = LogLevel
 }
 
-func (this *Log) DoWrite(str string,color int8) { //颜色选项暂时不用了
+func (l *Log) DoWrite(str string,color int8) { //颜色选项暂时不用了
 	var buffer bytes.Buffer
 	buffer.WriteString(ToString(time.Now().Unix()))
 	buffer.WriteString("： ")
@@ -76,11 +76,11 @@ func Info(strs ...string) {
 	}
 }
 
-func Error(strs ...string) {
+func Error(sts ...string) {
 	Instance := GetInstanceLog()
 	if Instance.LogLevel <= ERRORLEVEL {
 		result := ""
-		for _,str := range strs{
+		for _,str := range sts{
 			result += str
 		}
 		Instance.DoWrite("ERROR " + result, ERRORCOLOR)

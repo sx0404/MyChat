@@ -1,48 +1,51 @@
 package Server
 
+import "sync"
+
 //一个带消息队列的进程结构
 type QueProcessorM struct {
-	ProcessorNameInfo	map[string]*QueProcessor
-	ProcessorIDInfo		map[uint64]*QueProcessor
+	ProcessorNameInfo	sync.Map
+	ProcessorIDInfo		sync.Map
 }
 
 const (
 	_ = iota + 1
-	PROCEXIST 		//进程已经存在
-	PROCNOTEXIST
-	ADDPROCIGNORE	//添加进程到管理的参数不合法被跳过
-	ADDPROCOK		//添加进程到管理成功
+	PROC_EXIST 		//进程已经存在
+	PROC_NOTEXIST
+	ADD_PROC_IGNORE	//添加进程到管理的参数不合法被跳过
+	ADD_PROCOK		//添加进程到管理成功
 )
 
 var QueProcessorMInstance *QueProcessorM
 
 func GetQueProcessorManagerMInstance() *QueProcessorM {
 	if QueProcessorMInstance == nil {
-		processNameInfo := make(map[string]*QueProcessor)
-		processIDInfo := make(map[uint64]*QueProcessor)
-		QueProcessorMInstance = &QueProcessorM{processNameInfo,processIDInfo}
+		QueProcessorMInstance = &QueProcessorM{
+			ProcessorNameInfo: sync.Map{},
+			ProcessorIDInfo:   sync.Map{},
+		}
 	}
 	return QueProcessorMInstance
 }
 
-func (this *QueProcessorM) AddWithID(processor *QueProcessor) {
-	this.ProcessorIDInfo[(*processor).id] = processor
+func (m *QueProcessorM) AddWithID(processor *QueProcessor) {
+	m.ProcessorIDInfo.Load((*processor).id)
 }
 
 //添加一个进程信息到管理中来
-func (this *QueProcessorM) AddWithName(processor *QueProcessor) uint8 {
+func (m *QueProcessorM) AddWithName(processor *QueProcessor) uint8 {
 	if (*processor).Name == "" {
-		return ADDPROCIGNORE
+		return ADD_PROC_IGNORE
 	}else{
-		if this.ProcessorNameInfo[(*processor).Name] == nil {
-			//进程还未注册
-			this.ProcessorNameInfo[(*processor).Name] = processor
+		_,ok := m.ProcessorNameInfo.Load((*processor).Name)
+		if !ok {
+			m.ProcessorNameInfo.Store((*processor).Name,processor)
 		}else{
 			//进程已经注册返回给上层选择是否杀死
-			return PROCEXIST
+			return PROC_EXIST
 		}
 	}
-	return ADDPROCOK
+	return ADD_PROCOK
 }
 
 func DeleteFromQueProcessorM(processor *QueProcessor) {
@@ -50,52 +53,60 @@ func DeleteFromQueProcessorM(processor *QueProcessor) {
 	instance.Delete(processor)
 }
 
-func (this *QueProcessorM) Delete(processor *QueProcessor) {
-	this.ProcessorIDInfo[(*processor).id] = nil
-	this.ProcessorNameInfo[(*processor).Name] = nil
+func (m *QueProcessorM) Delete(processor *QueProcessor) {
+	m.ProcessorIDInfo.Delete((*processor).id)
+	m.ProcessorNameInfo.Delete((*processor).Name)
 }
 
-func (this *QueProcessorM) FindWithName(name string) *QueProcessor {
-	return this.ProcessorNameInfo[name]
+func (m *QueProcessorM) FindWithName(name string) *QueProcessor {
+	v,ok := m.ProcessorNameInfo.Load(name)
+	if !ok {
+		return nil
+	}
+	return v.(*QueProcessor)
 }
 
-func (this *QueProcessorM) FindWithID(id uint64) *QueProcessor {
-	return this.ProcessorIDInfo[id]
+func (m *QueProcessorM) FindWithID(id uint64) *QueProcessor {
+	v,ok := m.ProcessorIDInfo.Load(id)
+	if !ok {
+		return nil
+	}
+	return v.(*QueProcessor)
 }
 
 //异步关闭一个进程
-func (this *QueProcessorM) AsyncExitWithName(name string){
-	if this.ProcessorNameInfo[name] == nil {
+func (m *QueProcessorM) AsyncExitWithName(name string){
+	proc := m.FindWithName(name)
+	if proc == nil {
 		return
 	}else{
-		stopProcess := this.ProcessorNameInfo[name]
-		stopProcess.SendWithName(name, QueProcessExit{})
+		proc.SendWithName(name, QueProcessExit{})
 	}
 }
 
-func (this *QueProcessorM) AsyncExitWithID(id uint64) {
-	if this.ProcessorIDInfo[id] == nil {
+func (m *QueProcessorM) AsyncExitWithID(id uint64) {
+	proc := m.FindWithID(id)
+	if proc == nil {
 		return
 	}else{
-		stopProcess := this.ProcessorIDInfo[id]
-		stopProcess.SendWithID(id, QueProcessExit{})
+		proc.SendWithID(id, QueProcessExit{})
 	}
 }
 
-func (this *QueProcessorM) SyncExitWithName(name string) {
-	if this.ProcessorNameInfo[name] == nil {
+func (m *QueProcessorM) SyncExitWithName(name string) {
+	proc := m.FindWithName(name)
+	if proc == nil {
 		return
 	}else{
-		stopProcess := this.ProcessorNameInfo[name]
-		stopProcess.CallWithName(name, QueProcessExit{},3000)
+		proc.CallWithName(name, QueProcessExit{},3000)
 	}
 }
 
-func (this *QueProcessorM) SyncExitWithID(id uint64) {
-	if this.ProcessorIDInfo[id] == nil {
+func (m *QueProcessorM) SyncExitWithID(id uint64) {
+	proc := m.FindWithID(id)
+	if proc == nil {
 		return
 	}else{
-		stopProcess := this.ProcessorIDInfo[id]
-		stopProcess.CallWithID(id, QueProcessExit{},3000)
+		proc.CallWithID(id, QueProcessExit{},3000)
 	}
 }

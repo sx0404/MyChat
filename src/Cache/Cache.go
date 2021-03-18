@@ -5,42 +5,42 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
-type CacheConfig struct {
+type ChatCacheConfig struct {
 	addr		string
 }
 
 type ChatCache struct {
-	CacheConfig
+	ChatCacheConfig
 	conn 		redis.Conn
 }
 
-var CacheInstance *ChatCache
+var ChatCacheInstance *ChatCache
 
 func InitCache() *ChatCache {
-	cacheConfig := CacheConfig{
+	cacheConfig := ChatCacheConfig{
 		addr: "127.0.0.1:6379",
 	}
 	catCache := &ChatCache{
-		CacheConfig:cacheConfig,
+		ChatCacheConfig:cacheConfig,
 	}
 	catCache.Connect()
 	return catCache
 }
 
 func GetCacheDBInstance() *ChatCache {
-	if CacheInstance == nil {
-		CacheInstance = InitCache()
+	if ChatCacheInstance == nil {
+		ChatCacheInstance = InitCache()
 	}
-	return CacheInstance
+	return ChatCacheInstance
 }
 
-func (this *ChatCache) Connect() {
-	conn, err := redis.Dial("tcp",this.addr)
+func (c *ChatCache) Connect() {
+	conn, err := redis.Dial("tcp", c.addr)
 	if err != nil {
 		fmt.Println("connect redis error!!")
 		panic("redis error")
 	}
 	fmt.Println("connect redis succus!!!")
-	this.conn = conn
+	c.conn = conn
 }
 

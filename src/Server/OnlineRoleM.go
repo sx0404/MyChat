@@ -1,10 +1,12 @@
 package Server
 
+import "sync"
+
 //玩家在线后的一些基本信息
 
 type OnlineRole struct {
-	onlineID			map[uint64]*RoleProcessor
-	onlineName			map[string]*RoleProcessor
+	onlineID			sync.Map
+	onlineName			sync.Map
 }
 
 var onlineRoleInstance *OnlineRole
@@ -12,32 +14,40 @@ var onlineRoleInstance *OnlineRole
 func GetOnlineRoleInstance() *OnlineRole {
 	if onlineRoleInstance == nil {
 		onlineRoleInstance = &OnlineRole{
-			onlineID: make(map[uint64]*RoleProcessor),
-			onlineName: make(map[string]*RoleProcessor),
+			onlineID: sync.Map{},
+			onlineName: sync.Map{},
 		}
 	}
 	return onlineRoleInstance
 }
 
-func (this *OnlineRole) Add(proc *RoleProcessor) {
+func (r *OnlineRole) Add(proc *RoleProcessor) {
 	if proc == nil {
 		return
 	}
-	this.onlineID[proc.userID] = proc
-	this.onlineName[proc.userName] = proc
+	r.onlineID.Store(proc.id,proc)
+	r.onlineName.Store(proc.userName,proc)
 }
 
-func (this *OnlineRole) Delete(proc *RoleProcessor) {
-	this.onlineID[proc.userID] = nil
-	this.onlineName[proc.userName] = nil
+func (r *OnlineRole) Delete(proc *RoleProcessor) {
+	r.onlineID.Delete(proc.userID)
+	r.onlineName.Delete(proc.userName)
 }
 
-func (this *OnlineRole) FindWithID(userID uint64) *RoleProcessor {
-	return this.onlineID[userID]
+func (r *OnlineRole) FindWithID(userID uint64) *RoleProcessor {
+	c,ok := r.onlineID.Load(userID)
+	if !ok {
+		return nil
+	}
+	return c.(*RoleProcessor)
 }
 
-func (this *OnlineRole) FindWithUserName(userName string) *RoleProcessor {
-	return this.onlineName[userName]
+func (r *OnlineRole) FindWithUserName(userName string) *RoleProcessor {
+	c,ok := r.onlineName.Load(userName)
+	if !ok {
+		return nil
+	}
+	return c.(*RoleProcessor)
 }
 
 func RegisterOnline(proc *RoleProcessor) {

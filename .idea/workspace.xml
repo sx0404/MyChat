@@ -2,31 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="993de543-22c1-4684-b426-0ed5c5a0a19c" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/MyChat.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Server/OnlineRoleM.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/Server/QueMsg.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/proto/PdFactory.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src" beforeDir="false" afterPath="$PROJECT_DIR$/src" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Cache/Cache.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Cache/Cache.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Cache/CacheFunc.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Cache/CacheFunc.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Client/Client.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Client/Client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Common/ProtoDeal.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Common/ProtoDeal.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Common/QueMsg.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Common/QueProcessor.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Server/QueProcessor.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Common/QueProcessorM.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Server/QueProcessorM.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Common/util.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Common/util.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/DB/DB.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/DB/DB.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/DB/DBFunc.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/DB/DBFunc.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ErrCode/ErrCode.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/ErrCode/ErrCode.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Formation/RoleInfo.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Formation/RoleInfo.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Server/GateWayAgent.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Server/GateWayAgent.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Server/RoleLogic.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/Server/RoleLogic.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/proto/chat.pb.go" beforeDir="false" afterPath="$PROJECT_DIR$/src/proto/chat.pb.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/proto/chat.proto" beforeDir="false" afterPath="$PROJECT_DIR$/src/proto/chat.proto" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,17 +52,17 @@
     <property name="configurable.GoLibrariesConfigurable.is.expanded" value="true" />
     <property name="go.import.settings.migrated" value="true" />
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/Server" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/Client" />
     <property name="restartRequiresConfirmation" value="false" />
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/Client" />
       <recent name="$PROJECT_DIR$/src/Server" />
       <recent name="$PROJECT_DIR$/src/proto" />
       <recent name="$PROJECT_DIR$/src" />
       <recent name="$PROJECT_DIR$/src/Cache" />
-      <recent name="$PROJECT_DIR$/src/DB" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src/Server" />
@@ -94,7 +70,7 @@
       <recent name="$PROJECT_DIR$/src/Common" />
     </key>
   </component>
-  <component name="RunManager" selected="Go Build.go build Client.go">
+  <component name="RunManager" selected="Go Build.go build main.go">
     <configuration name="go build Client.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="MyChat" />
       <working_directory value="$PROJECT_DIR$" />
@@ -139,6 +115,48 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Server/GateWayAgent.go</url>
+          <line>198</line>
+          <option name="timeStamp" value="120" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Server/GateWayAgent.go</url>
+          <line>142</line>
+          <option name="timeStamp" value="122" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/DB/DBFunc.go</url>
+          <line>33</line>
+          <option name="timeStamp" value="124" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Client/Client.go</url>
+          <line>49</line>
+          <option name="timeStamp" value="131" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Client/Client.go</url>
+          <line>43</line>
+          <option name="timeStamp" value="132" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Client/Client.go</url>
+          <line>39</line>
+          <option name="timeStamp" value="133" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Common/ProtoDeal.go</url>
+          <line>59</line>
+          <option name="timeStamp" value="137" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/src/Server/GateWayAgent.go</url>
+          <line>81</line>
+          <option name="timeStamp" value="140" />
+        </line-breakpoint>
+      </breakpoints>
       <default-breakpoints>
         <breakpoint type="DlvErrorBreakpoint" />
       </default-breakpoints>
