@@ -13,23 +13,22 @@ import (
 )
 
 type QueMsgM struct {
-	QueMsgInfo		map[string]func(interface{})
-	QueMsgCall		map[string]func(interface{}) CallReturnMsg
-	procPtr			*QueProcessor
+	QueMsgInfo map[string]func(interface{})
+	QueMsgCall map[string]func(interface{}) CallReturnMsg
+	procPtr    *QueProcessor
 }
 
 //一个带消息队列的进程结构
 type QueProcessor struct {
-	id			uint64
-	Name		string
-	Que			chan interface{}			//
-	down		chan bool
-	timeTick	*time.Ticker
+	id       uint64
+	Name     string
+	Que      chan interface{} //
+	down     chan bool
+	timeTick *time.Ticker
 	QueMsgM
 }
 
 type CallTimeOver struct {
-
 }
 
 type CallReturnMsg struct {
@@ -37,23 +36,22 @@ type CallReturnMsg struct {
 }
 
 type CallExitReturn struct {
-
 }
 
 type CallSendMsg struct {
-	fromID				uint64
-	s interface{}
+	fromID uint64
+	s      interface{}
 }
 
 //退出当前进程
 type QueProcessExit struct {
-	reson			string		//退出原因
+	reson string //退出原因
 }
 
 func InitQueMsgM(process *QueProcessor) *QueMsgM {
 	info := make(map[string]func(interface{}))
 	call := make(map[string]func(interface{}) CallReturnMsg)
-	queMsgM := &QueMsgM{info,call, process}
+	queMsgM := &QueMsgM{info, call, process}
 	return queMsgM
 }
 
@@ -68,11 +66,11 @@ func (this *QueMsgM) RegisterAll(processor *QueProcessor) {
 
 }
 
-func (this *QueMsgM) RegisterInfo(a interface{},f func(interface{})) {
+func (this *QueMsgM) RegisterInfo(a interface{}, f func(interface{})) {
 	this.QueMsgInfo[Common.GetStructName(a)] = f
 }
 
-func (this *QueMsgM) RegisterCall(i interface{},f func(interface{}) CallReturnMsg) {
+func (this *QueMsgM) RegisterCall(i interface{}, f func(interface{}) CallReturnMsg) {
 	this.QueMsgCall[Common.GetStructName(i)] = f
 }
 
@@ -86,7 +84,7 @@ func (this *QueMsgM) GetCallFunc(strucName string) func(interface{}) CallReturnM
 
 func InitQueProcessor(name string) QueProcessor {
 	queProcessor := QueProcessor{}
-	queProcessor.Que = make(chan interface{},1000)
+	queProcessor.Que = make(chan interface{}, 1000)
 	queProcessor.down = make(chan bool)
 	queMsgM := InitQueMsgM(&queProcessor)
 	queProcessor.QueMsgM = *queMsgM
@@ -120,26 +118,26 @@ func (p *QueProcessor) AddProcToM() {
 }
 
 //异步发送消息给指定进程
-func (p *QueProcessor) SendWithName(processorName string,i interface{}) {
+func (p *QueProcessor) SendWithName(processorName string, i interface{}) {
 	instance := GetQueProcessorManagerMInstance()
 	targetProc := instance.FindWithName(processorName)
-	p.Send(targetProc,i)
+	p.Send(targetProc, i)
 }
 
 func (p *QueProcessor) SendSelf(i interface{}) {
-	p.SendWithID(p.id,i)
+	p.SendWithID(p.id, i)
 }
 
-func (p *QueProcessor) SendWithID(id uint64,i interface{}) {
+func (p *QueProcessor) SendWithID(id uint64, i interface{}) {
 	instance := GetQueProcessorManagerMInstance()
 	targetProc := instance.FindWithID(id)
-	p.Send(targetProc,i)
+	p.Send(targetProc, i)
 }
 
-func (p *QueProcessor) Send(target *QueProcessor,i interface{}) {
+func (p *QueProcessor) Send(target *QueProcessor, i interface{}) {
 	if target == nil {
-		fmt.Println("SendWithName error",i)
-	}else{
+		fmt.Println("SendWithName error", i)
+	} else {
 		target.Que <- i
 	}
 }
@@ -148,13 +146,13 @@ func (p *QueProcessor) Send(target *QueProcessor,i interface{}) {
 func (p *QueProcessor) LoopWithFunc(defaultFunc func()) {
 	for {
 		select {
-			case a := <- p.Que:
-				p.Route(a)
-			case <- p.down:
-				fmt.Println("goroutine down")
-				return
-			default:
-				defaultFunc()
+		case a := <-p.Que:
+			p.Route(a)
+		case <-p.down:
+			fmt.Println("goroutine down")
+			return
+		default:
+			defaultFunc()
 		}
 	}
 }
@@ -164,12 +162,12 @@ func (p *QueProcessor) Loop() {
 	p.timeTick = time.NewTicker(time.Second)
 	for {
 		select {
-		case a := <- p.Que:
+		case a := <-p.Que:
 			p.Route(a)
-		case <- p.down:
+		case <-p.down:
 			fmt.Println("goroutine down")
 			return
-		case <- p.timeTick.C:
+		case <-p.timeTick.C:
 			p.timeTick = time.NewTicker(time.Second)
 			//TODO 后面可以🏠事件注册来实现定时任务
 			//fmt.Println("11111")
@@ -180,7 +178,7 @@ func (p *QueProcessor) Loop() {
 func (p *QueProcessor) Route(i interface{}) {
 	f := p.GetInfoFunc(Common.GetStructName(i))
 	if f == nil {
-		fmt.Println("Route not find,",i, p.Name)
+		fmt.Println("Route not find,", i, p.Name)
 		return
 	}
 	f(i)
@@ -192,34 +190,34 @@ func (p *QueProcessor) CallRoute(i interface{}) CallReturnMsg {
 }
 
 //同步执行
-func (p *QueProcessor) CallWithID(id uint64,s interface{},timeOut int64) {
-	p.SendWithID(id, CallSendMsg{p.id,s})
+func (p *QueProcessor) CallWithID(id uint64, s interface{}, timeOut int64) {
+	p.SendWithID(id, CallSendMsg{p.id, s})
 	p.Call2(timeOut)
 }
 
-func (p *QueProcessor) CallWithName(name string,s interface{},timeOut int64) {
-	p.SendWithName(name, CallSendMsg{p.id,s})
+func (p *QueProcessor) CallWithName(name string, s interface{}, timeOut int64) {
+	p.SendWithName(name, CallSendMsg{p.id, s})
 	p.Call2(timeOut)
 }
 
 func (p *QueProcessor) Call2(timeOut int64) error {
 	for {
-		var timer = time.NewTimer(time.Millisecond  * time.Duration(timeOut))
-		sliceI := make([]interface{},100)
+		var timer = time.NewTimer(time.Millisecond * time.Duration(timeOut))
+		sliceI := make([]interface{}, 100)
 		select {
-		case receive := <- p.Que:
+		case receive := <-p.Que:
 			if reflect.TypeOf(receive).Name() == "CallReturnMsg" {
 				callReturnMsg := receive.(CallReturnMsg)
 				p.Route(callReturnMsg.s)
 				for i := range sliceI {
-					p.SendSelf(i)			//把之前遗留的消息返回
+					p.SendSelf(i) //把之前遗留的消息返回
 				}
 				return nil
-			}else{
+			} else {
 				sliceI = append(sliceI, receive)
 			}
-			case <-timer.C:
-				return errors.New("time out")
+		case <-timer.C:
+			return errors.New("time out")
 		}
 	}
 }
@@ -236,14 +234,14 @@ func GetGoroutineID() uint64 {
 //异步处理的消息
 func (p *QueProcessor) Exit(i interface{}) {
 	exit := i.(QueProcessExit)
-	fmt.Println("goroutine exist ", p.Name, p.id,exit.reson)
+	fmt.Println("goroutine exist ", p.Name, p.id, exit.reson)
 	p.DoExit()
 }
 
 //同步处理的消息
 func (p *QueProcessor) SyncExit(i interface{}) CallReturnMsg {
 	exit := i.(QueProcessExit)
-	fmt.Println("SyncExit:", p.Name, p.id,exit.reson)
+	fmt.Println("SyncExit:", p.Name, p.id, exit.reson)
 	p.DoExit()
 	return CallReturnMsg{}
 }
