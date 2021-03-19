@@ -283,7 +283,7 @@ func AStar(DoPrint bool) {
 	//	return
 	//}
 	//fmt.Println("end point,x:", endX, ",y", endY)
-	searchRoad := NewSearchRoad(1, 13, 5, 45, &m)
+	searchRoad := NewSearchRoad(1, 13, 756, 863, &m)
 	if searchRoad.FindoutRoad() {
 		fmt.Println("find， ok！")
 		m.PrintMap(searchRoad, DoPrint)
