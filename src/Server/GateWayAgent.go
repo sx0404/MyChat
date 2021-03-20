@@ -181,8 +181,8 @@ func (a *GateWayAgent) GetUserID() uint64 {
 	return a.userID
 }
 
-var CsLoginStr = "CsLogin"
-var CsHeartStr = "CsHeart"
+const CsLoginStr = "CsLogin"
+const CsHeartStr = "CsHeart"
 
 func (a *GateWayAgent) HandleMsg(msgName string, msg interface{}) {
 	switch {
