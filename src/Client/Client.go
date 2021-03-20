@@ -10,22 +10,22 @@ import (
 	ChatMsg "test/src/proto"
 )
 
-type ChatClient struct{
-	UserName 			string
-	PassWorld 			string
-	conn 				net.Conn
-	serverAddr 			string
+type ChatClient struct {
+	UserName   string
+	PassWorld  string
+	conn       net.Conn
+	serverAddr string
 	*Common.ProtoDeal
-	buff 				[]byte
-	buffIndex 			uint16
-	handle 				map[string]func(interface{})
-	target				string
+	buff      []byte
+	buffIndex uint16
+	handle    map[string]func(interface{})
+	target    string
 }
 
 func InitClient() {
 	chatClient := ChatClient{
 		serverAddr: "127.0.0.1:12588",
-		handle: make(map[string]func(interface{})),
+		handle:     make(map[string]func(interface{})),
 	}
 	chatClient.ProtoDeal = Common.GetProtoDealInstance()
 	chatClient.connect()
@@ -41,7 +41,7 @@ func (a *ChatClient) LoopDoNetData() {
 			fmt.Println("get err wrong", err)
 			break
 		}
-		if dataLen == 0{
+		if dataLen == 0 {
 			continue
 		}
 		a.buff = append(a.buff[:a.buffIndex], data...)
@@ -55,14 +55,14 @@ func (a *ChatClient) LoopDoNetData() {
 
 			// id
 			var pdNameLen uint16
-			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4])		//前两位作为proto名称的长度
+			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4]) //前两位作为proto名称的长度
 			var msgName string
-			msgName = string(a.buff[4:4+pdNameLen])
+			msgName = string(a.buff[4 : 4+pdNameLen])
 			msg := a.PdFactory(msgName)
 			err = proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
 			if err != nil {
 				fmt.Println("proto unmarshal error!!!!")
-				a.DoExit()		//解码出错关闭网关
+				a.DoExit() //解码出错关闭网关
 			}
 			a.buffIndex -= msgLen
 			a.buff = a.buff[msgLen:dataLen]
@@ -87,7 +87,7 @@ func (a *ChatClient) DoExit() {
 func (a *ChatClient) connect() {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", a.serverAddr)
 	if err != nil {
-		fmt.Println( "addr err", err.Error())
+		fmt.Println("addr err", err.Error())
 		panic("addr error")
 	}
 	a.conn, err = net.DialTCP("tcp", nil, tcpAddr)
@@ -114,7 +114,7 @@ func (a *ChatClient) DoLogin() {
 	fmt.Println("input PassWord:")
 	a.PassWorld = Common.KeyInput()
 
-	a.SendSock(&ChatMsg.CsLogin{UserName: a.UserName,PassWord: a.PassWorld})
+	a.SendSock(&ChatMsg.CsLogin{UserName: a.UserName, PassWord: a.PassWorld})
 }
 
 func (a *ChatClient) CoutOnDesk(str string) {
@@ -125,7 +125,7 @@ func (a *ChatClient) HandleMsg(msg interface{}) {
 	msgName := Common.GetStructName(msg)
 	f := a.handle[msgName]
 	if f == nil {
-		fmt.Println("HandleMsg wrong msg",msg)
+		fmt.Println("HandleMsg wrong msg", msg)
 	}
 	f(msg)
 }
@@ -137,7 +137,7 @@ func (a *ChatClient) ChooseTarget() {
 	a.target = targetName
 }
 
-func (a *ChatClient) Regist(msg interface{},f func(interface{})) {
+func (a *ChatClient) Regist(msg interface{}, f func(interface{})) {
 	a.handle[Common.GetStructName(msg)] = f
 }
 
@@ -175,8 +175,8 @@ func (a *ChatClient) ScChatTarget(i interface{}) {
 	case ErrCode.OK:
 		fmt.Println("target is online")
 		a.DoChat()
-	default :
-		fmt.Println("ScChatTarget unknown errCode",msg.ErrCode)
+	default:
+		fmt.Println("ScChatTarget unknown errCode", msg.ErrCode)
 	}
 }
 
@@ -203,5 +203,5 @@ func (a *ChatClient) ScChat(i interface{}) {
 
 func (a *ChatClient) ScChatFrom(i interface{}) {
 	msg := i.(*ChatMsg.ScChatFrom)
-	fmt.Println("From ",msg.FromName,":",msg.Content)
+	fmt.Println("From ", msg.FromName, ":", msg.Content)
 }
