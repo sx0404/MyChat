@@ -13,20 +13,20 @@ import (
 	ChatMsg "test/src/proto"
 )
 
-type SelfRouteMsg struct{
-	Code				string		//操作码
-	Params				[]interface{}
+type SelfRouteMsg struct {
+	Code   string //操作码
+	Params []interface{}
 }
 
 type GateWayAgent struct {
 	QueProcessor
-	conn				net.Conn
+	conn net.Conn
 	*Common.ProtoDeal
-	userID				uint64
-	roleLogic			*RoleProcessor
-	buff				[]byte
-	buffIndex			uint16
-	lastHearTIme		int64
+	userID       uint64
+	roleLogic    *RoleProcessor
+	buff         []byte
+	buffIndex    uint16
+	lastHearTIme int64
 }
 
 type MsgRaw struct {
@@ -38,10 +38,10 @@ func InitGateAgent(conn net.Conn) {
 	queProcessor := InitQueProcessor("")
 	protoDeal := Common.GetProtoDealInstance()
 	gateWayAgent := GateWayAgent{
-		QueProcessor:queProcessor,
-		conn: conn,
-		ProtoDeal : protoDeal,
-		userID: 0}
+		QueProcessor: queProcessor,
+		conn:         conn,
+		ProtoDeal:    protoDeal,
+		userID:       0}
 	gateWayAgent.RunGateWay()
 }
 
@@ -49,7 +49,7 @@ func InitGateAgent(conn net.Conn) {
 func (a *GateWayAgent) RunGateWay() {
 	defer a.conn.Close()
 	a.buff = make([]byte, 1024)
-	a.buffIndex  = 0
+	a.buffIndex = 0
 	a.LoopDoNetData()
 }
 
@@ -75,14 +75,14 @@ func (a *GateWayAgent) LoopDoNetData() {
 
 			// id
 			var pdNameLen uint16
-			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4])		//前两位作为proto名称的长度
+			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4]) //前两位作为proto名称的长度
 			var msgName string
-			msgName = string(a.buff[4:4+pdNameLen])
+			msgName = string(a.buff[4 : 4+pdNameLen])
 			msg := a.PdFactory(msgName)
 			err = proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
 			if err != nil {
 				fmt.Println("proto unmarshal error!!!!")
-				a.DoExit()		//解码出错关闭网关
+				a.DoExit() //解码出错关闭网关
 			}
 			a.buffIndex -= msgLen
 			a.buff = a.buff[msgLen:dataLen]
@@ -113,7 +113,7 @@ func (a *GateWayAgent) SendSock(i proto.Message) {
 	a.conn.Write(C)
 }
 
-func (a *GateWayAgent) GenAgentName() string{
+func (a *GateWayAgent) GenAgentName() string {
 	return "GateWay" + Common.ToString(int64((a.userID)))
 }
 
@@ -124,18 +124,19 @@ func (a *GateWayAgent) CsHeart(i interface{}) {
 func (a *GateWayAgent) CheckHearTime() {
 	Now := Common.GetNow()
 	//TODO 客户端暂时不发心跳，心跳短线后面再测
-	if Now - a.lastHearTIme > math.MaxInt64 {
+	if Now-a.lastHearTIme > math.MaxInt64 {
 		a.Exit()
 	}
 }
 
 func (a *GateWayAgent) Exit() {
 	a.conn.Close()
+	//logic一并退出
 }
 
 func (a *GateWayAgent) CsLogin(i interface{}) {
 	//检查登陆信息,login放在网关.登陆没有问题再启动逻辑
-	msg,ok := i.(*ChatMsg.CsLogin)
+	msg, ok := i.(*ChatMsg.CsLogin)
 	if !ok {
 		fmt.Println("CsLogin struct error")
 		return
@@ -143,7 +144,7 @@ func (a *GateWayAgent) CsLogin(i interface{}) {
 	roleInfo := db.GetUser(msg.UserName)
 	if roleInfo.UserName == "" {
 		//注册一个玩家信息
-		roleInfo = a.CreateRole(msg.UserName,msg.PassWord)
+		roleInfo = a.CreateRole(msg.UserName, msg.PassWord)
 	} else if roleInfo.Password != msg.PassWord {
 		a.SendSock(&ChatMsg.ScLogin{ErrCode: ErrCode.LoginPassWord})
 		return
@@ -159,10 +160,10 @@ func (a *GateWayAgent) CsLogin(i interface{}) {
 	//不存在逻辑进程则立即启动
 	if roleLogicProcessor == nil {
 		//启动一个逻辑进程
-		roleProcessor := InitRoleProcessor(a,msg.UserName)
-		a.roleLogic = roleProcessor
+		roleProcessor := InitRoleProcessor(a, msg.UserName)
+		a.roleLogic = &roleProcessor
 		a.roleLogic.RunRoleProcessor()
-	}else{
+	} else {
 		a.roleLogic = roleLogicProcessor
 		//逻辑正关联一个网管则直接提离
 		if a.roleLogic.gatewayAgent != nil {
@@ -183,7 +184,7 @@ func (a *GateWayAgent) GetUserID() uint64 {
 var CsLoginStr = "CsLogin"
 var CsHeartStr = "CsHeart"
 
-func (a *GateWayAgent) HandleMsg(msgName string,msg interface{}) {
+func (a *GateWayAgent) HandleMsg(msgName string, msg interface{}) {
 	switch {
 	case msgName == CsLoginStr:
 		a.CsLogin(msg)
@@ -191,13 +192,13 @@ func (a *GateWayAgent) HandleMsg(msgName string,msg interface{}) {
 		a.CsHeart(msg)
 	default:
 		roleLogic := a.roleLogic
-		a.Send(&(roleLogic.QueProcessor),msg)
+		a.Send(&(roleLogic.QueProcessor), msg)
 	}
 }
 
-func (a *GateWayAgent) CreateRole(userName string,passWord string) Formation.RoleInfo {
+func (a *GateWayAgent) CreateRole(userName string, passWord string) Formation.RoleInfo {
 	roleInfo := Formation.RoleInfo{
-		UserID: Common.GenUserID(),
+		UserID:   Common.GenUserID(),
 		UserName: userName,
 		Password: passWord,
 	}

@@ -13,11 +13,11 @@ import (
 
 //玩家的逻辑协程
 type RoleProcessor struct {
-	gatewayAgent *GateWayAgent	//与逻辑进程关联的网管协程
+	gatewayAgent *GateWayAgent //与逻辑进程关联的网管协程
 	QueProcessor
-	userID		uint64
-	userName	string
-	chatTarget	string
+	userID     uint64
+	userName   string
+	chatTarget string
 	*Common.ProtoDeal
 }
 
@@ -25,14 +25,14 @@ func GenRoleProcessorName(userID uint64) string {
 	return "Role" + Common.ToString(int64(userID))
 }
 
-func InitRoleProcessor(gatewayAgent *GateWayAgent,userName string) *RoleProcessor{
+func InitRoleProcessor(gatewayAgent *GateWayAgent, userName string) RoleProcessor {
 	queProcessor := InitQueProcessor(GenRoleProcessorName(gatewayAgent.GetUserID()))
-	roleProcessor := &RoleProcessor{
+	roleProcessor := RoleProcessor{
 		gatewayAgent: gatewayAgent,
 		QueProcessor: queProcessor,
-		userID: gatewayAgent.GetUserID(),
-		userName :userName,
-		ProtoDeal : Common.GetProtoDealInstance(),
+		userID:       gatewayAgent.GetUserID(),
+		userName:     userName,
+		ProtoDeal:    Common.GetProtoDealInstance(),
 	}
 	roleProcessor.RegistAllHandle()
 	return roleProcessor
@@ -69,9 +69,9 @@ func (p *RoleProcessor) InfoLoadDB(i interface{}) {
 	roleMoney := db.GetRoleMoney(p.userID)
 	roleFriendInfo := db.GetRoleFriendInfo(p.userID)
 
-	Cache.SetRoleInfo(p.userID,roleInfo)
-	Cache.SetRoleMoney(p.userID,roleMoney)
-	Cache.SetRoleFriend(p.userID,roleFriendInfo)
+	Cache.SetRoleInfo(p.userID, roleInfo)
+	Cache.SetRoleMoney(p.userID, roleMoney)
+	Cache.SetRoleFriend(p.userID, roleFriendInfo)
 }
 
 func (p *RoleProcessor) GetRoleInfo() *Formation.RoleInfo {
@@ -83,7 +83,7 @@ func (p *RoleProcessor) SendSock(i proto.Message) {
 	if p.gatewayAgent == nil {
 		fmt.Println("gateway not Found")
 	}
-	fmt.Println("send msg ",Common.GetStructName(i),i)
+	fmt.Println("send msg ", Common.GetStructName(i), i)
 	C := p.Marshal(i)
 	p.gatewayAgent.conn.Write(C)
 }
@@ -120,21 +120,20 @@ func (p *RoleProcessor) CsChat(i interface{}) {
 		//通知客户端只能留言
 		userID := db.GetUserIDByUserName(p.chatTarget)
 		db.InsertChat(Formation.OfflineChat{
-		SendID:   userID,
-		FromID:   p.userID,
-		FromName: p.userName,
-		Content:  msg.Content,
+			SendID:   userID,
+			FromID:   p.userID,
+			FromName: p.userName,
+			Content:  msg.Content,
 		})
 		p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.RoleOffline})
 		return
 	}
-	p.Send(&targetProc.QueProcessor,InfoRoleChat{FromName: p.userName,Content: msg.Content})
+	p.Send(&targetProc.QueProcessor, InfoRoleChat{FromName: p.userName, Content: msg.Content})
 	p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.OK})
 }
 
 //接受到聊天消息发给自己
 func (p *RoleProcessor) InfoRoleChat(i interface{}) {
 	info := i.(InfoRoleChat)
-	p.SendSock(&ChatMsg.ScChatFrom{FromName: info.FromName,Content: info.Content})
+	p.SendSock(&ChatMsg.ScChatFrom{FromName: info.FromName, Content: info.Content})
 }
-
