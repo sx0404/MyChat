@@ -2,6 +2,7 @@ package Common
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	ChatMsg "test/src/proto"
@@ -49,10 +50,13 @@ func (d *ProtoDeal) PdFactory(PdName string) proto.Message {
 	return f()
 }
 
-func (d *ProtoDeal) Marshal(i proto.Message) []byte {
+const MarshalErrCode = "proto marshal error"
+
+func (d *ProtoDeal) Marshal(i proto.Message) ([]byte, error) {
 	b, err := proto.Marshal(i)
 	if err != nil {
 		fmt.Println("proto error:", i)
+		return b, errors.New(MarshalErrCode)
 	}
 	PdName := GetStructName(i)
 	buff := append(StrToBytes(PdName), b...)
@@ -62,5 +66,5 @@ func (d *ProtoDeal) Marshal(i proto.Message) []byte {
 	lenB := make([]byte, 2)
 	binary.BigEndian.PutUint16(lenB, uint16(len(buff)+2))
 	buff = append(lenB, buff...)
-	return buff
+	return buff, nil
 }

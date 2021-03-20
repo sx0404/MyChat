@@ -2,6 +2,7 @@ package Server
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"math"
@@ -47,10 +48,33 @@ func InitGateAgent(conn net.Conn) {
 
 //启动一个agent来处理
 func (a *GateWayAgent) RunGateWay() {
-	defer a.conn.Close()
+	defer a.DoExit()
 	a.buff = make([]byte, 1024)
 	a.buffIndex = 0
 	a.LoopDoNetData()
+}
+
+const GateUnMarshalErrCode = "proto unmarshal error"
+
+//网关的解码函数
+func (a *GateWayAgent) UnMarshal(dataLen int, msgLen uint16) (string, proto.Message, error) {
+	var pdNameLen uint16
+	pdNameLen = binary.BigEndian.Uint16(a.buff[2:4]) //前两位作为proto名称的长度
+	var msgName string
+	if msgName == "" {
+		Common.Debug("unmarshal message error: ")
+		a.DoExit()
+	}
+	msgName = string(a.buff[4 : 4+pdNameLen])
+	msg := a.PdFactory(msgName)
+	err := proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
+	if err != nil {
+		fmt.Println("proto unmarshal error!!!!")
+		return msgName, msg, errors.New(GateUnMarshalErrCode)
+	}
+	a.buffIndex -= msgLen
+	a.buff = a.buff[msgLen:dataLen]
+	return msgName, msg, nil
 }
 
 func (a *GateWayAgent) LoopDoNetData() {
@@ -66,29 +90,16 @@ func (a *GateWayAgent) LoopDoNetData() {
 		}
 		a.buff = append(a.buff[:a.buffIndex], data...)
 		a.buffIndex += uint16(dataLen)
-		var msgLen uint16 //消息长度防止沾包
-		msgLen = binary.BigEndian.Uint16(a.buff)
 		for {
+			var msgLen uint16 //消息长度防止沾包
+			msgLen = binary.BigEndian.Uint16(a.buff)
 			if uint16(dataLen) < msgLen {
 				break //等待后续的包
 			}
-
-			// id
-			var pdNameLen uint16
-			pdNameLen = binary.BigEndian.Uint16(a.buff[2:4]) //前两位作为proto名称的长度
-			var msgName string
-			msgName = string(a.buff[4 : 4+pdNameLen])
-			msg := a.PdFactory(msgName)
-			err = proto.Unmarshal(a.buff[4+pdNameLen:msgLen], msg)
+			msgName, msg, err := a.UnMarshal(dataLen, msgLen)
 			if err != nil {
-				fmt.Println("proto unmarshal error!!!!")
-				a.DoExit() //解码出错关闭网关
-			}
-			a.buffIndex -= msgLen
-			a.buff = a.buff[msgLen:dataLen]
-			if msgName == "" {
-				Common.Debug("unmarshal message error: ")
-				break
+				fmt.Println("msg unmarshal error,msg:", msg)
+				continue //继续解后面的字节
 			}
 			fmt.Println("msg ok,msg", msgName)
 			//直接执行函数
@@ -108,9 +119,15 @@ func (a *GateWayAgent) RegisterSelfInfo() {
 	a.RegisterInfo(&ChatMsg.CsLogin{}, a.CsLogin)
 }
 
-func (a *GateWayAgent) SendSock(i proto.Message) {
-	C := a.Marshal(i)
-	a.conn.Write(C)
+func (a *GateWayAgent) SendSock(msg proto.Message) {
+	data, err := a.Marshal(msg)
+	if err != nil {
+		fmt.Println("proto marshal error,msg:", msg)
+	}
+	_, err = a.conn.Write(data)
+	if err != nil {
+		fmt.Println("send sock error,msg:", msg)
+	}
 }
 
 func (a *GateWayAgent) GenAgentName() string {
@@ -130,7 +147,10 @@ func (a *GateWayAgent) CheckHearTime() {
 }
 
 func (a *GateWayAgent) Exit() {
-	a.conn.Close()
+	err := a.conn.Close()
+	if err != nil {
+		fmt.Println("exit conn err,reason:", err)
+	}
 	a.roleLogic.DoExit()
 }
 

@@ -34,11 +34,11 @@ func InitRoleProcessor(gatewayAgent *GateWayAgent, userName string) RoleProcesso
 		userName:     userName,
 		ProtoDeal:    Common.GetProtoDealInstance(),
 	}
-	roleProcessor.RegistAllHandle()
+	roleProcessor.RegisterAllHandle()
 	return roleProcessor
 }
 
-func (p *RoleProcessor) RegistAllHandle() {
+func (p *RoleProcessor) RegisterAllHandle() {
 	p.RegisterInfo(InfoLoadDB{}, p.InfoLoadDB)
 	p.RegisterInfo(InfoChangeGateWayToRoleLogic{}, p.InfoChangeGateWayToRoleLogic)
 	p.RegisterInfo(ChatMsg.CsChatTarget{}, p.CsChatTarget)
@@ -79,13 +79,19 @@ func (p *RoleProcessor) GetRoleInfo() *Formation.RoleInfo {
 	return roleInfo
 }
 
-func (p *RoleProcessor) SendSock(i proto.Message) {
+func (p *RoleProcessor) SendSocket(msg proto.Message) {
 	if p.gatewayAgent == nil {
 		fmt.Println("gateway not Found")
 	}
-	fmt.Println("send msg ", Common.GetStructName(i), i)
-	C := p.Marshal(i)
-	p.gatewayAgent.conn.Write(C)
+	fmt.Println("send msg ", Common.GetStructName(msg), msg)
+	bytes, err := p.Marshal(msg)
+	if err != nil {
+		fmt.Println("proto marshal error,msg:", msg)
+	}
+	_, err = p.gatewayAgent.conn.Write(bytes)
+	if err != nil {
+		fmt.Println("RoleLogic SendSocket error,msg")
+	}
 }
 
 func (p *RoleProcessor) CsChatTarget(i interface{}) {
@@ -99,20 +105,20 @@ func (p *RoleProcessor) CsChatTarget(i interface{}) {
 		if targetID == 0 {
 			//玩家不存在
 			p.chatTarget = targetName
-			p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.UserNotExist})
+			p.SendSocket(&ChatMsg.ScChatTarget{ErrCode: ErrCode.UserNotExist})
 			return
 		}
-		p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.RoleOffline})
+		p.SendSocket(&ChatMsg.ScChatTarget{ErrCode: ErrCode.RoleOffline})
 		return
 	}
 	p.chatTarget = targetName
-	p.SendSock(&ChatMsg.ScChatTarget{ErrCode: ErrCode.OK})
+	p.SendSocket(&ChatMsg.ScChatTarget{ErrCode: ErrCode.OK})
 }
 
 func (p *RoleProcessor) CsChat(i interface{}) {
 	msg := i.(*ChatMsg.CsChat)
 	if p.chatTarget == "" {
-		p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.ChatTargetNotSet})
+		p.SendSocket(&ChatMsg.ScChat{ErrCode: ErrCode.ChatTargetNotSet})
 		return
 	}
 	targetProc := GetOnlineRoleByUserName(p.chatTarget)
@@ -125,15 +131,15 @@ func (p *RoleProcessor) CsChat(i interface{}) {
 			FromName: p.userName,
 			Content:  msg.Content,
 		})
-		p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.RoleOffline})
+		p.SendSocket(&ChatMsg.ScChat{ErrCode: ErrCode.RoleOffline})
 		return
 	}
 	p.Send(&targetProc.QueProcessor, InfoRoleChat{FromName: p.userName, Content: msg.Content})
-	p.SendSock(&ChatMsg.ScChat{ErrCode: ErrCode.OK})
+	p.SendSocket(&ChatMsg.ScChat{ErrCode: ErrCode.OK})
 }
 
 //接受到聊天消息发给自己
 func (p *RoleProcessor) InfoRoleChat(i interface{}) {
 	info := i.(InfoRoleChat)
-	p.SendSock(&ChatMsg.ScChatFrom{FromName: info.FromName, Content: info.Content})
+	p.SendSocket(&ChatMsg.ScChatFrom{FromName: info.FromName, Content: info.Content})
 }

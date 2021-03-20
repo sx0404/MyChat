@@ -99,9 +99,15 @@ func (a *ChatClient) connect() {
 	fmt.Println("connection success")
 }
 
-func (a *ChatClient) SendSock(i proto.Message) {
-	data := a.Marshal(i)
-	a.conn.Write(data)
+func (a *ChatClient) SendSock(msg proto.Message) {
+	data, err := a.Marshal(msg)
+	if err != nil {
+		fmt.Println("marshal msg error,msg:", msg)
+	}
+	_, err = a.conn.Write(data)
+	if err != nil {
+		fmt.Println("send sock error,msg:", msg)
+	}
 }
 
 func (a *ChatClient) BehaviorTree() {
