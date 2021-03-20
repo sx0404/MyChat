@@ -131,7 +131,7 @@ func (a *GateWayAgent) CheckHearTime() {
 
 func (a *GateWayAgent) Exit() {
 	a.conn.Close()
-	//logic一并退出
+	a.roleLogic.DoExit()
 }
 
 func (a *GateWayAgent) CsLogin(i interface{}) {
