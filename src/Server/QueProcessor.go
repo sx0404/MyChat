@@ -190,17 +190,17 @@ func (p *QueProcessor) CallRoute(i interface{}) CallReturnMsg {
 }
 
 //同步执行
-func (p *QueProcessor) CallWithID(id uint64, s interface{}, timeOut int64) {
+func (p *QueProcessor) CallWithID(id uint64, s interface{}, timeOut int64) error {
 	p.SendWithID(id, CallSendMsg{p.id, s})
-	p.Call2(timeOut)
+	return p.Call(timeOut)
 }
 
-func (p *QueProcessor) CallWithName(name string, s interface{}, timeOut int64) {
+func (p *QueProcessor) CallWithName(name string, s interface{}, timeOut int64) error {
 	p.SendWithName(name, CallSendMsg{p.id, s})
-	p.Call2(timeOut)
+	return p.Call(timeOut)
 }
 
-func (p *QueProcessor) Call2(timeOut int64) error {
+func (p *QueProcessor) Call(timeOut int64) error {
 	for {
 		var timer = time.NewTimer(time.Millisecond * time.Duration(timeOut))
 		sliceI := make([]interface{}, 100)
